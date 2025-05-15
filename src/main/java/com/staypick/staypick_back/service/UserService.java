@@ -3,6 +3,9 @@ package com.staypick.staypick_back.service;
 import com.staypick.staypick_back.entity.User;
 import com.staypick.staypick_back.repository.UserRepository;
 import com.staypick.staypick_back.security.JwtUtil;
+import com.staypick.staypick_back.util.IpUtils;
+
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,7 +22,11 @@ public class UserService {
     private final JwtUtil jwtUtil;
 
     @Transactional
-    public void register(String username, LocalDateTime birth, String userid, String password, String email, String tel, int zipcode, String address, String userimg, String userprofile, String userip) {
+    public void register(HttpServletRequest request, String username, LocalDateTime birth, String userid, String password, String email, String tel) {
+        
+        //클라이언트 IP 추출
+        String userip = IpUtils.getClientIp(request);
+
         if (userRepository.existsByUserid(userid)) {
             throw new IllegalArgumentException("이미 존재하는 아이디입니다.");
         }
@@ -32,23 +39,13 @@ public class UserService {
 
         String encodedPassword = passwordEncoder.encode(password);
 
-        User user = User.builder()
-                .username(username)
-                .birth(birth)
-                .userid(userid)
-                .password(encodedPassword)
-                .email(email)
-                .tel(tel)
-                .zipcode(zipcode)
-                .address(address)
-                .userimg(userimg)
-                .userprofile(userprofile)
-                .regdate(LocalDateTime.now())
-                .userip(userip)
-                .role("ROLE_USER") // 기본 역할 설정
-                .build();
+        User user = User.createUser(userid, encodedPassword, username, tel, email, birth, userip);
 
         userRepository.save(user);
+    }
+
+    public boolean isIdAvailable(String userid){
+        return !userRepository.existsByUserid(userid);
     }
 
     public String login(String userid, String password) {
