@@ -1,5 +1,8 @@
 package com.staypick.staypick_back.controller;
 
+import com.staypick.staypick_back.entity.User;
+import com.staypick.staypick_back.repository.UserRepository;
+import com.staypick.staypick_back.security.JwtUtil;
 import com.staypick.staypick_back.service.UserService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -25,6 +29,8 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
     private final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     @PostMapping("/register")
@@ -79,6 +85,52 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("로그인 실패");
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(HttpServletRequest request) {
+        try {
+            
+            return ResponseEntity.ok("로그아웃 성공");
+        } catch (Exception e) {
+            logger.error("로그아웃 실패: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("로그아웃 실패");
+        }
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<User> getProfile(HttpServletRequest request) {
+        try {
+            String token = jwtUtil.extractTokenFromRequest(request);  // 요청 헤더에서 토큰 추출
+            String userid = jwtUtil.extractUsername(token);  // JWT에서 사용자 ID 추출
+
+            Optional<User> userOptional = userRepository.findByUserid(userid);
+            if (userOptional.isPresent()) {
+                return ResponseEntity.ok(userOptional.get());
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+        }
+    }
+
+    @GetMapping("/check-login")
+    public ResponseEntity<String> checkLoginStatus(HttpServletRequest request) {
+        try {
+            // 토큰 추출
+            String token = jwtUtil.extractTokenFromRequest(request);
+            
+            // 토큰이 없거나 유효하지 않으면 로그인되지 않은 상태
+            if (token == null || !jwtUtil.validateToken(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("로그인 필요");
+            }
+            
+            // 토큰이 유효한 경우 로그인 상태
+            return ResponseEntity.ok("로그인 상태");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("로그인 상태 확인 실패");
         }
     }
 }

@@ -8,6 +8,7 @@ import com.staypick.staypick_back.entity.User;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUserid(String userid);
+    Optional<User> findById(Long id);
     boolean existsByUserid(String userid);
     boolean existsByEmail(String email);
     boolean existsByTel(String tel);

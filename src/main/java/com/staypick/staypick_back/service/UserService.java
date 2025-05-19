@@ -49,17 +49,29 @@ public class UserService {
     }
 
     public String login(String userid, String password) {
-        Optional<User> userOptional = userRepository.findByUserid(userid);
-        if (userOptional.isEmpty()) {
-            throw new IllegalArgumentException("존재하지 않는 아이디입니다.");
-        }
+        try {
+            Optional<User> userOptional = userRepository.findByUserid(userid);
+            if (userOptional.isEmpty()) {
+                throw new IllegalArgumentException("존재하지 않는 아이디입니다.");
+            }
 
-        User user = userOptional.get();
-        if (!passwordEncoder.matches(password, user.getPassword())) {
-            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
-        }
+            User user = userOptional.get();
+            System.out.println("User found: " + user.getUserid()); // 디버깅용 로그
 
-        return jwtUtil.generateToken(user.getUserid(), user.getRole());
+            if (!passwordEncoder.matches(password, user.getPassword())) {
+                throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+            }
+
+            String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
+            System.out.println("Generated Token: " + token); // 디버깅용 로그
+
+            return token;
+        } catch (Exception e) {
+            // 예외 발생 시 로그 남기기
+            System.err.println("로그인 오류: " + e.getMessage());
+            throw e;
+        }
     }
+
 
 }
