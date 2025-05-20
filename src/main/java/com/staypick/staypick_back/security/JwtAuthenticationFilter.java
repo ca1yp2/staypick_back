@@ -35,16 +35,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("🧾 Authorization Header에서 추출된 토큰: " + token);
 
         if (token != null && jwtUtil.validateToken(token)) {
-            String username = jwtUtil.extractUsername(token);
+            String userid = jwtUtil.extractUsername(token); // ✅ 실은 userid
             String role = jwtUtil.extractRole(token);
 
             System.out.println("✅ 토큰 유효함");
-            System.out.println("🔐 username: " + username);
+            System.out.println("🔐 userid: " + userid);
             System.out.println("🔐 role: " + role);
 
             try {
-                User userEntity = userRepository.findByUsername(username)
-                        .orElseThrow(() -> new RuntimeException("❌ 사용자 정보 없음: " + username));
+                User userEntity = userRepository.findByUserid(userid)
+                        .orElseThrow(() -> new RuntimeException("❌ 사용자 정보 없음: " + userid));
 
                 List<SimpleGrantedAuthority> authorities =
                         List.of(new SimpleGrantedAuthority("ROLE_" + role));
