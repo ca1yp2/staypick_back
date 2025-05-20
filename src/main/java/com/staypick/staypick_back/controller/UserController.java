@@ -3,6 +3,7 @@ package com.staypick.staypick_back.controller;
 import com.staypick.staypick_back.entity.User;
 import com.staypick.staypick_back.repository.UserRepository;
 import com.staypick.staypick_back.security.JwtUtil;
+import com.staypick.staypick_back.service.KakaoAuthService;
 import com.staypick.staypick_back.service.UserService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,7 +19,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import java.time.LocalDateTime;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,6 +33,7 @@ public class UserController {
 
     private final UserService userService;
     private final UserRepository userRepository;
+    private final KakaoAuthService kakaoAuthService;
     private final JwtUtil jwtUtil;
     private final Logger logger = LoggerFactory.getLogger(UserController.class);
 
@@ -40,11 +44,17 @@ public class UserController {
                 throw new IllegalArgumentException("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
             }
 
+            LocalDate birth = null;
+            if(registerData.get("birth") != null && !registerData.get("birth").isEmpty()){
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+                birth = LocalDate.parse(registerData.get("birth"), formatter);
+            }
+
             // 클라이언트 IP를 UserService의 register 메서드로 전달
             userService.register(
                     request, // HttpServletRequest 전달
                     registerData.get("username"),
-                    registerData.get("birth") != null ? LocalDateTime.parse(registerData.get("birth")) : null,
+                    birth != null ? birth.atStartOfDay() : null,
                     registerData.get("userid"),
                     registerData.get("password"),
                     registerData.get("email"),
@@ -76,6 +86,7 @@ public class UserController {
         }
     }
 
+    //로그인
     @PostMapping("/login")
     public ResponseEntity<String> login(@RequestBody Map<String, String> loginData) {
         try {
@@ -88,17 +99,20 @@ public class UserController {
         }
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<String> logout(HttpServletRequest request) {
-        try {
-            
-            return ResponseEntity.ok("로그아웃 성공");
-        } catch (Exception e) {
-            logger.error("로그아웃 실패: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("로그아웃 실패");
+    //카카오 로그인
+    @PostMapping("/kakao-login")
+    public ResponseEntity<String> kakaoLogin(@RequestBody String accessToken){
+        try{
+            String token = kakaoAuthService.kakaoLogin(accessToken);
+            return ResponseEntity.ok(token);
+        }catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("카카오 로그인 실패");
         }
     }
 
+    //클라이언트에서 토큰 삭제로 로그아웃 처리 (=> 백엔드 구현 x)
+
+    //사용자 프로필
     @GetMapping("/profile")
     public ResponseEntity<User> getProfile(HttpServletRequest request) {
         try {
@@ -116,6 +130,7 @@ public class UserController {
         }
     }
 
+    //로그인 상태
     @GetMapping("/check-login")
     public ResponseEntity<String> checkLoginStatus(HttpServletRequest request) {
         try {
