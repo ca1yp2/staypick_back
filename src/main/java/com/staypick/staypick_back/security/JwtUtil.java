@@ -30,9 +30,9 @@ public class JwtUtil {
     }
 
     // 토큰 생성
-    public String generateToken(String username, String role) {
+    public String generateToken(String userid, String username, String role) {
         return Jwts.builder()
-                .subject(username)  // username을 subject로 사용
+                .subject(userid)  // username을 subject로 사용
                 .claim("role", role)
                 .claim("username", username)
                 .issuedAt(new Date())
@@ -70,6 +70,7 @@ public class JwtUtil {
                     .parseSignedClaims(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
+            System.err.println("JWT 검증 실패: " + e.getMessage());
             return false;
         }
     }
@@ -77,11 +78,20 @@ public class JwtUtil {
     //HttpServletRequest에서 토큰 추출
     public String extractTokenFromRequest(HttpServletRequest request){
         //Authorization 헤더에서 "Bearer" 접두어를 제외한 토큰을 추출
-        String authorizationHeader = request.getHeader("authorization");
+        String authorizationHeader = request.getHeader("Authorization");
         if(authorizationHeader != null && authorizationHeader.startsWith("Bearer")){
             return authorizationHeader.substring(7); //"Bearer" 접두어 제거
         }
         return null;
+    }
+
+    //RefreshToekn
+    public String generateRefreshToken(String userid){
+        return Jwts.builder()
+                   .subject(userid)
+                   .expiration(new Date(System.currentTimeMillis() + ( 7 * 24 * 60 * 60 * 1000))) //7일
+                   .signWith(getSigningKey())
+                   .compact();
     }
 
 }

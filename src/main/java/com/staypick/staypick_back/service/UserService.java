@@ -62,7 +62,7 @@ public class UserService {
                 throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
             }
 
-            String token = jwtUtil.generateToken(user.getUsername(), user.getRole());
+            String token = jwtUtil.generateToken(user.getUserid(), user.getUsername(), user.getRole());
             System.out.println("Generated Token: " + token); // 디버깅용 로그
 
             return token;
