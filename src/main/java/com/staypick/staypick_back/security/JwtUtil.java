@@ -9,6 +9,8 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.staypick.staypick_back.entity.User;
+
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,15 +32,26 @@ public class JwtUtil {
     }
 
     // 토큰 생성
-    public String generateToken(String userid, String username, String role) {
+    public String generateToken(User user) {
+        boolean needAdditionalInfo = user.getEmail() == null || user.getBirth() == null || user.getTel() == null;
         return Jwts.builder()
-                .subject(userid)  // username을 subject로 사용
-                .claim("role", role)
-                .claim("username", username)
+                .subject(user.getUserid())  // username을 subject로 사용
+                .claim("username", user.getUsername())
+                .claim("role", user.getRole())
+                .claim("needAdditionalInfo", needAdditionalInfo)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationTime))
                 .signWith(getSigningKey())
                 .compact();
+    }
+
+    public String generateToken(String userid, String username, String role) {
+        User tempUser = new User();
+        tempUser.setUserid(userid);
+        tempUser.setUsername(username);
+        tempUser.setRole(role);
+        // email, birth, tel 은 null 그대로, 추가 입력 필요 여부 판단 가능
+        return generateToken(tempUser);
     }
     
     //토큰에서 사용자 이름 추출

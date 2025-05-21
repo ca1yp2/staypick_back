@@ -3,13 +3,12 @@ package com.staypick.staypick_back.service;
 import com.staypick.staypick_back.entity.User;
 import com.staypick.staypick_back.repository.UserRepository;
 import com.staypick.staypick_back.security.JwtUtil;
-import com.staypick.staypick_back.util.IpUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -21,57 +20,79 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
-    @Transactional
-    public void register(HttpServletRequest request, String username, LocalDateTime birth, String userid, String password, String email, String tel) {
-        
-        //클라이언트 IP 추출
-        String userip = IpUtils.getClientIp(request);
+    public User register(HttpServletRequest request,
+                         String username,
+                         LocalDateTime birth,
+                         String userid,
+                         String rawPassword,
+                         String email,
+                         String tel) {
 
-        if (userRepository.existsByUserid(userid)) {
+        if (userRepository.findByUserid(userid).isPresent()) {
             throw new IllegalArgumentException("이미 존재하는 아이디입니다.");
         }
-        if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("이미 존재하는 이메일입니다.");
-        }
-        if (userRepository.existsByTel(tel)) {
-            throw new IllegalArgumentException("이미 존재하는 전화번호입니다.");
-        }
 
-        String encodedPassword = passwordEncoder.encode(password);
+        String encodedPassword = passwordEncoder.encode(rawPassword);
+        String userip = request.getRemoteAddr();
 
-        User user = User.createUser(userid, encodedPassword, username, tel, email, birth, userip);
+        User user = User.builder()
+                .username(username)
+                .birth(birth)
+                .userid(userid)
+                .password(encodedPassword)
+                .email(email)
+                .tel(tel)
+                .userip(userip)
+                .provider("local")
+                .build();
 
-        userRepository.save(user);
+        return userRepository.save(user);
     }
 
-    public boolean isIdAvailable(String userid){
-        return !userRepository.existsByUserid(userid);
+    public User registerKakaoUser(HttpServletRequest request,
+                                  String username,
+                                  LocalDateTime birth,
+                                  String userid,
+                                  String email,
+                                  String tel) {
+
+        if (userRepository.findByUserid(userid).isPresent()) {
+            throw new IllegalArgumentException("이미 가입된 사용자입니다.");
+        }
+
+        String userip = request.getRemoteAddr();
+
+        User user = User.builder()
+                .username(username)
+                .birth(birth)
+                .userid(userid)
+                .email(email)
+                .tel(tel)
+                .userip(userip)
+                .provider("kakao")
+                .build();
+
+        return userRepository.save(user);
     }
 
     public String login(String userid, String password) {
-        try {
-            Optional<User> userOptional = userRepository.findByUserid(userid);
-            if (userOptional.isEmpty()) {
-                throw new IllegalArgumentException("존재하지 않는 아이디입니다.");
-            }
+        Optional<User> optionalUser = userRepository.findByUserid(userid);
 
-            User user = userOptional.get();
-            System.out.println("User found: " + user.getUserid()); // 디버깅용 로그
-
-            if (!passwordEncoder.matches(password, user.getPassword())) {
-                throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
-            }
-
-            String token = jwtUtil.generateToken(user.getUserid(), user.getUsername(), user.getRole());
-            System.out.println("Generated Token: " + token); // 디버깅용 로그
-
-            return token;
-        } catch (Exception e) {
-            // 예외 발생 시 로그 남기기
-            System.err.println("로그인 오류: " + e.getMessage());
-            throw e;
+        if (optionalUser.isEmpty()) {
+            throw new IllegalArgumentException("존재하지 않는 사용자입니다.");
         }
+
+        User user = optionalUser.get();
+
+        // ✅ 패스워드가 null이면 일반 로그인 불가 (카카오 유저 차단)
+        if (user.getPassword() == null) {
+            throw new IllegalArgumentException("카카오 로그인 유저입니다. 카카오 로그인을 사용해주세요.");
+        }
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+        }
+
+        return jwtUtil.generateToken(user);
     }
-
-
 }
