@@ -9,41 +9,50 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import lombok.RequiredArgsConstructor;
+
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))  //CORS 설정 적용
-                .csrf(csrf -> csrf.disable())                                       //CSRF 비활성화
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/upload/**")
-                        .permitAll()                                                //다른 인증 필요 없는 API들
-                        .anyRequest()
-                        .authenticated());                                          //그 외의 모든 요청은 인증 필요
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))  // CORS 설정
+            .csrf(csrf -> csrf.disable())                                       // CSRF 비활성화
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**", "/upload/**").permitAll()      // 인증 예외 경로
+                .anyRequest().authenticated()                                   // 그 외는 인증 필요
+            )
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class); // ✅ JWT 필터 등록
+
         return http.build();
     }
 
-    // cors 처리
+    // CORS 설정
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));      //클라이언트에서 오는 요청을 허용
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));    //GET, POST 등 허용
-        configuration.setAllowedHeaders(List.of("*"));                          //모든 헤더 허용
-        configuration.setAllowCredentials(true);                  //자격 증명 허용
+        configuration.setAllowedOrigins(List.of("http://localhost:5173")); // 프론트엔드 도메인
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);            //모든 엔드포인트에 대해 CORS 설정 적용
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 
-    @Bean // PasswordEncoder Bean 등록
+    // 비밀번호 암호화
+    @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
